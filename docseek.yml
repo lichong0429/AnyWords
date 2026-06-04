@@ -1,0 +1,41 @@
+server:
+  port: 9921
+  host: 127.0.0.1
+index:
+  dir: C:\Users\24221\AppData\Local\docseek\index
+  writer_buffer_bytes: 50000000
+  max_file_size_bytes: 52428800
+parser:
+  tika_server_url: null
+  tika_jar_path: null
+  fallback_basic: true
+watcher:
+  watch_dirs: []
+  enabled: true
+  debounce_ms: 2000
+  full_scan_interval_secs: 0
+  exclude_extensions:
+  - tmp
+  - temp
+  - lock
+  - sys
+  - dll
+  - exe
+  - so
+  - dylib
+  - class
+  - o
+  - obj
+  - a
+  exclude_patterns:
+  - node_modules
+  - .git
+  - __pycache__
+  - .idea
+  - .vscode
+  - target
+  - .cargo
+  - .rustup
+  - vendor
+logging:
+  level: info

@@ -1,0 +1,81 @@
+# DocSeek Configuration File
+# Copy this file to 'docseek.yml' in the same directory as the executable
+# All values shown are the defaults - uncomment and modify as needed
+
+# HTTP Server settings
+server:
+  host: "127.0.0.1"
+  port: 9921
+
+# Search engine index settings
+index:
+  # Where to store the tantivy index files
+  dir: "data/index"
+  # Writer buffer size in bytes (default: 50MB)
+  writer_buffer_bytes: 50000000
+  # Maximum file size to index (default: 50MB)
+  max_file_size_bytes: 52428800
+
+# Document parser settings
+parser:
+  # Apache Tika Server URL (requires Tika server running on this address)
+  # Download: https://dlcdn.apache.org/tika/
+  # Run: java -jar tika-server-standard-x.x.jar --port 9998
+  # tika_server_url: "http://localhost:9998"
+  
+  # Alternative: local tika-app.jar path
+  # Download: https://dlcdn.apache.org/tika/tika-app-x.x.jar
+  # tika_jar_path: "./tools/tika-app.jar"
+  
+  # Fall back to basic parser if Tika is unavailable
+  fallback_basic: true
+
+# File watcher settings
+watcher:
+  # Enable real-time file change monitoring
+  enabled: true
+  # Debounce time in milliseconds (avoids re-indexing during active writes)
+  debounce_ms: 2000
+  
+  # Directories to watch (supports recursive watching)
+  # Add the directories you want to search:
+  watch_dirs: []
+  # watch_dirs:
+  #   - "E:/Documents"
+  #   - "E:/Projects"
+  #   - "D:/Downloads"
+  
+  # Periodic full re-scan interval (seconds, 0 = disabled)
+  full_scan_interval_secs: 0
+  
+  # File extensions to exclude
+  exclude_extensions:
+    - "tmp"
+    - "temp"
+    - "lock"
+    - "sys"
+    - "dll"
+    - "exe"
+    - "so"
+    - "dylib"
+    - "class"
+    - "o"
+    - "obj"
+    - "a"
+  
+  # Path patterns to exclude (case-insensitive)
+  exclude_patterns:
+    - "node_modules"
+    - ".git"
+    - "__pycache__"
+    - ".idea"
+    - ".vscode"
+    - "target"
+    - ".cargo"
+    - ".rustup"
+    - "vendor"
+
+# Logging
+logging:
+  # Level: trace, debug, info, warn, error
+  level: "info"
