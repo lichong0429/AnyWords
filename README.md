@@ -1,118 +1,77 @@
-# DocSeek - 本地文件全文搜索引擎
+# AnyWords
 
-一个基于 Web 的桌面文件全文搜索工具，类似 AnyTXT Searcher。用浏览器访问你的本地文件，搜索文档内容。
+English | [中文](README_zh.md)
 
-## ✨ 特性
+A high-performance local document full-text search engine — an **open-source alternative to AnyTXT Searcher**.
 
-- 🔍 **全文搜索** — 支持中文分词、精确短语、正则表达式、通配符
-- 📄 **多格式支持** — TXT/PDF/DOCX/XLSX/PPTX/EPUB/HTML 等，可选 Tika 集成扩展更多格式
-- ⚡ **高性能** — 基于 Tantivy 搜索引擎 (比 Lucene 快 2x)，毫秒级响应
-- 🌐 **Web 界面** — 浏览器访问 localhost:9921，美观的 React 界面，支持深色/浅色主题
-- 📊 **分面聚合** — 自动按文件类型、时间范围统计搜索结果
-- 🔄 **实时监控** — 自动检测文件变更并增量索引
-- 📦 **单文件部署** — 一个 exe 文件即可运行，无需安装
+AnyTXT is powerful but paid. AnyWords is free, open-source, and built for both humans and **AI Agents**.
 
-## 🚀 快速开始
+## Why AnyWords?
 
-### 直接使用（Windows）
+- **Free & Open Source** — No licenses, no restrictions.
+- **AI Agent Ready** — Clean REST API designed for programmatic access. Your AI assistant can search your local files via simple HTTP calls.
+- **Fast** — Powered by Tantivy (the Rust equivalent of Lucene). Sub-10ms search on tens of thousands of documents.
+- **Broad Format Support** — PDF, DOCX, XLSX, PPTX, TXT, MD, HTML, EPUB, RTF, ODT, and more.
 
-1. 双击 `start.bat`
-2. 浏览器自动打开 `http://localhost:9921`
-3. 点击「⚙️ 管理」→ 输入目录路径 → 点击「📂 扫描」
-4. 索引完成后即可搜索
+## API for AI Agents
 
-### 命令行启动
+The primary use case: let your AI Agent search your local files.
 
 ```bash
-docseek.exe
-# 打开 http://localhost:9921
+# Search
+curl "http://localhost:9921/api/search?q=meeting+notes&limit=5"
+
+# Index a directory
+curl -X POST "http://localhost:9921/api/index/scan" \
+  -H "Content-Type: application/json" \
+  -d '{"directory": "C:/Users/You/Documents", "recursive": true}'
+
+# Get index stats
+curl "http://localhost:9921/api/index/stats"
 ```
 
-### 配置
+## Quick Start
 
-复制 `docseek.sample.yml` 为 `docseek.yml`，根据需要修改：
+1. Download from [Releases](https://github.com/lichong0429/AnyWords/releases)
+2. Run `docseek.exe` (yes, the binary name will be `anywords.exe` in next release)
+3. Open `http://localhost:9921` in your browser
+
+Or build from source:
+
+```bash
+cargo build --release
+./target/release/anywords.exe
+```
+
+## Configuration
+
+Edit `anywords.yml` (auto-created on first run):
 
 ```yaml
 server:
+  host: "0.0.0.0"
   port: 9921
 
-watcher:
-  watch_dirs:
-    - "E:/Documents"
-    - "D:/Projects"
+index:
+  dir: "~/.anywords/index"
+  auto_commit: true
+
+scan:
+  max_file_size: 52428800  # 50MB
+  max_depth: 20
+  follow_symlinks: false
 ```
 
-## 🛠 开发
+## Web UI
 
-### 技术栈
+A built-in React frontend is served at `http://localhost:9921`.
 
-| 层 | 技术 |
-|---|------|
-| 后端 | Rust + axum + Tantivy |
-| 前端 | React 19 + TypeScript + Tailwind CSS 4 |
-| 搜索引擎 | Tantivy + tantivy-jieba (中文分词) |
-| 构建 | Cargo (Rust) + Vite (前端) |
+## Tech Stack
 
-### 构建
+- **Backend**: Rust + Axum + Tantivy
+- **Frontend**: React + TypeScript + Vite
+- **Supported formats**: PDF, DOCX, XLSX, PPTX, TXT, MD, HTML, EPUB, RTF, ODT
 
-```bash
-# 前端
-cd frontend && npm install && npm run build
+## License
 
-# 后端（需要 Rust 1.96+）
-cd .. && cargo build --release
-
-# 运行
-./target/release/docseek.exe
-```
-
-### 开发模式
-
-```bash
-# 终端 1：启动后端
-cargo run
-
-# 终端 2：启动前端 dev server（带热重载 + API 代理）
-cd frontend && npm run dev
-# → http://localhost:5173
-```
-
-## 📡 API 接口
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET/POST | `/api/search` | 全文搜索 |
-| GET | `/api/search/suggest` | 搜索建议 |
-| GET | `/api/search/export` | 导出 CSV |
-| GET | `/api/preview` | 文件内容预览 |
-| GET | `/api/index/stats` | 索引统计 |
-| GET | `/api/index/progress` | 索引进度 |
-| POST | `/api/index/scan` | 扫描目录 |
-| POST | `/api/index/add` | 添加文件 |
-| POST | `/api/index/remove` | 移除文件 |
-| POST | `/api/index/rebuild` | 重建索引 |
-| GET | `/api/health` | 健康检查 |
-
-### 搜索查询参数
-
-```
-GET /api/search?q=项目计划&mode=fulltext&sort=relevance&limit=30
-                 &file_type=pdf&path_filter=投标&size_min=1024&size_max=1048576
-```
-
-## 📦 扩展格式支持（可选）
-
-安装 Apache Tika 以获得更多格式支持：
-
-1. 下载 [tika-app.jar](https://tika.apache.org/download.html)
-2. 放到 `docseek.exe` 同级目录
-3. 编辑 `docseek.yml`：
-   ```yaml
-   parser:
-     tika_jar_path: "./tika-app.jar"
-   ```
-4. 需要安装 Java 运行环境
-
-## 📝 许可证
-
-MIT License
+MIT

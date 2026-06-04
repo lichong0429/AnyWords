@@ -112,7 +112,7 @@ pub async fn handle_export(
                 StatusCode::OK,
                 [
                     ("Content-Type", "text/csv; charset=utf-8"),
-                    ("Content-Disposition", "attachment; filename=docseek_export.csv"),
+                    ("Content-Disposition", "attachment; filename=anywords_export.csv"),
                 ],
                 csv,
             ).into_response()

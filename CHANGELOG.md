@@ -1,4 +1,4 @@
-# DocSeek MVP 发布检查清单
+# AnyWords MVP 发布检查清单
 
 ## 编译验证
 
@@ -23,10 +23,10 @@
 
 ## 打包文件
 
-- [x] `docseek.exe` - 后端二进制
+- [x] `anywords.exe` - 后端二进制
 - [x] `frontend/dist/` - React 前端构建产物
 - [x] `start.bat` - Windows 启动脚本
-- [x] `docseek.sample.yml` - 配置模板
+- [x] `anywords.sample.yml` - 配置模板
 - [x] `README.md` - 使用文档
 - [x] `package.bat` - 打包脚本
 

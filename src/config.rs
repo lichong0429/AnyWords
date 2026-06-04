@@ -97,7 +97,7 @@ fn default_host() -> String { "127.0.0.1".to_string() }
 fn default_index_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("docseek")
+        .join("anywords")
         .join("index")
 }
 fn default_writer_buffer() -> usize { 50_000_000 }
@@ -186,7 +186,7 @@ impl Default for LogConfig {
 impl Config {
     /// Load config from YAML file, merging with defaults
     pub fn load(config_path: Option<&str>) -> anyhow::Result<Self> {
-        let path = config_path.unwrap_or("docseek.yml");
+        let path = config_path.unwrap_or("anywords.yml");
 
         let config = if std::path::Path::new(path).exists() {
             let content = std::fs::read_to_string(path)?;

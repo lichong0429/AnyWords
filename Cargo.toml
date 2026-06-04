@@ -1,5 +1,5 @@
 [package]
-name = "docseek"
+name = "anywords"
 version = "0.1.0"
 edition = "2021"
 description = "A web-based desktop file full-text search engine"

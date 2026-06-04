@@ -1,5 +1,5 @@
-# DocSeek Configuration File
-# Copy this file to 'docseek.yml' in the same directory as the executable
+# AnyWords Configuration File
+# Copy this file to 'anywords.yml' in the same directory as the executable
 # All values shown are the defaults - uncomment and modify as needed
 
 # HTTP Server settings

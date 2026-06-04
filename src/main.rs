@@ -1,4 +1,4 @@
-// DocSeek - Web-based File Full-Text Search Engine
+// AnyWords - Web-based File Full-Text Search Engine
 // Main entry point
 
 mod api;
@@ -37,12 +37,12 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("docseek={}", config.logging.level).into()),
+                .unwrap_or_else(|_| format!("anywords={}", config.logging.level).into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    tracing::info!("DocSeek v{} starting up...", env!("CARGO_PKG_VERSION"));
+    tracing::info!("AnyWords v{} starting up...", env!("CARGO_PKG_VERSION"));
     tracing::info!("Config loaded: port={}, index_dir={}",
         config.server.port,
         config.index.dir.display()
@@ -130,7 +130,7 @@ async fn main() -> anyhow::Result<()> {
     // Start server
     let addr = SocketAddr::from(([127, 0, 0, 1], config.server.port));
     tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    tracing::info!("  DocSeek is running at: http://{}", addr);
+    tracing::info!("  AnyWords is running at: http://{}", addr);
     tracing::info!("  Open your browser to start searching!");
     tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 

@@ -2,7 +2,7 @@ server:
   port: 9921
   host: 127.0.0.1
 index:
-  dir: C:\Users\24221\AppData\Local\docseek\index
+  dir: C:\Users\24221\AppData\Local\anywords\index
   writer_buffer_bytes: 50000000
   max_file_size_bytes: 52428800
 parser:
