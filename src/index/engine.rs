@@ -656,8 +656,11 @@ fn build_highlight_snippet(
     }
 
     let pos = best_pos.unwrap_or(0);
-    let start = pos.saturating_sub(window);
-    let end = (pos + window).min(clean.len());
+    let mut start = pos.saturating_sub(window);
+    let mut end = (pos + window).min(clean.len());
+    // Ensure we don't slice inside a multi-byte char
+    while start > 0 && !clean.is_char_boundary(start) { start -= 1; }
+    while !clean.is_char_boundary(end) && end < clean.len() { end += 1; }
 
     let snippet = if start > 0 {
         format!("...{}", &clean[start..end])
@@ -672,8 +675,11 @@ fn build_highlight_snippet(
                 .match_indices(&kw.to_lowercase())
                 .next()
                 .map(|(p, _)| {
-                    let h_start = p.saturating_sub(20);
-                    let h_end = (p + kw.len() + 40).min(clean.len());
+                    let mut h_start = p.saturating_sub(20);
+                    let mut h_end = (p + kw.len() + 40).min(clean.len());
+                    // Ensure we don't slice inside a multi-byte char
+                    while h_start > 0 && !clean.is_char_boundary(h_start) { h_start -= 1; }
+                    while !clean.is_char_boundary(h_end) && h_end < clean.len() { h_end += 1; }
                     let prefix = if h_start > 0 { "..." } else { "" };
                     let suffix = if h_end < clean.len() { "..." } else { "" };
                     let marked = format!(

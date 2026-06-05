@@ -6,6 +6,7 @@ use crate::AppState;
 
 use super::search::*;
 use super::index_api::*;
+use super::mcp::{handle_mcp, handle_mcp_sse};
 
 /// Create the main API router
 pub fn create_router(state: Arc<AppState>) -> Router {
@@ -24,6 +25,12 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/index/add", post(handle_index_add))
         .route("/api/index/remove", post(handle_index_remove))
         .route("/api/index/scan", post(handle_index_scan))
+
+        // ── MCP (Model Context Protocol) ──────────────
+        // HTTP POST transport (standard)
+        .route("/mcp", post(handle_mcp))
+        // SSE transport (for legacy clients like older Claude Desktop)
+        .route("/mcp/sse", get(handle_mcp_sse))
 
         // ── Health ────────────────────────────────────
         .route("/api/health", get(handle_health))

@@ -202,44 +202,52 @@ fn extract_ooxml_text(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedC
     })
 }
 
-/// Extract text from PDF (basic - extracts embedded text)
+/// Extract text from PDF using pdf-extract crate (handles most real-world PDFs)
 fn extract_pdf_text(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedContent> {
-    let raw_bytes = fs::read(file_path)?;
+    match pdf_extract::extract_text(file_path) {
+        Ok(text) => {
+            let trimmed = text.trim().to_string();
+            if trimmed.is_empty() {
+                Ok(ExtractedContent {
+                    text: "[PDF contains no extractable text - may be scanned image PDF]".to_string(),
+                    mime_type: mime.to_string(),
+                    used_tika: false,
+                })
+            } else {
+                Ok(ExtractedContent {
+                    text: trimmed,
+                    mime_type: mime.to_string(),
+                    used_tika: false,
+                })
+            }
+        }
+        Err(e) => {
+            tracing::warn!("pdf-extract failed for {:?}: {}. Falling back to BT/ET parser.", file_path, e);
+            extract_pdf_text_basic(file_path, mime)
+        }
+    }
+}
 
-    // Simple PDF text extraction: look for text between BT/ET markers
+/// Fallback BT/ET-based PDF text extractor (for unusual PDFs)
+fn extract_pdf_text_basic(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedContent> {
+    let raw_bytes = fs::read(file_path)?;
     let content = String::from_utf8_lossy(&raw_bytes);
     let mut text = String::new();
-
-    // Parse PDF text blocks (BT ... ET)
     let mut in_text_block = false;
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed == "BT" {
-            in_text_block = true;
-            continue;
-        }
-        if trimmed == "ET" {
-            in_text_block = false;
-            continue;
-        }
+        if trimmed == "BT" { in_text_block = true; continue; }
+        if trimmed == "ET" { in_text_block = false; continue; }
         if in_text_block {
-            // Extract text from Tj, TJ, ' operators
             if let Some(tj_text) = extract_pdf_tj(trimmed) {
                 text.push_str(&tj_text);
             }
         }
     }
-
     if text.trim().is_empty() {
-        text = "[PDF text extraction limited - no embedded text found. OCR may be needed for scanned PDFs]"
-            .to_string();
+        text = "[PDF: no embedded text found - may be scanned image]".to_string();
     }
-
-    Ok(ExtractedContent {
-        text,
-        mime_type: mime.to_string(),
-        used_tika: false,
-    })
+    Ok(ExtractedContent { text, mime_type: mime.to_string(), used_tika: false })
 }
 
 /// Extract text from EPUB files
