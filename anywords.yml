@@ -2,7 +2,7 @@ server:
   port: 9921
   host: 127.0.0.1
 index:
-  dir: C:\Users\24221\AppData\Local\anywords\index
+  dir: E:\anywords_index
   writer_buffer_bytes: 50000000
   max_file_size_bytes: 52428800
 parser:
@@ -10,7 +10,9 @@ parser:
   tika_jar_path: null
   fallback_basic: true
 watcher:
-  watch_dirs: []
+  watch_dirs:
+  - C:\Users\24221\Documents
+  - E:\24221\Documents
   enabled: true
   debounce_ms: 2000
   full_scan_interval_secs: 0
@@ -27,6 +29,50 @@ watcher:
   - o
   - obj
   - a
+  - 7z
+  - zip
+  - rar
+  - tar
+  - gz
+  - bz2
+  - xz
+  - iso
+  - cab
+  - arj
+  - z
+  - lz
+  - lz4
+  - zst
+  - img
+  - vmdk
+  - vdi
+  - qcow2
+  - bin
+  - dat
+  # Whitelist mode: uncomment and list extensions to index ONLY those types.
+  # When commented out (empty), all non-excluded extensions are indexed.
+  include_extensions:
+  - pdf
+  - txt
+  - md
+  - docx
+  - doc
+  - xlsx
+  - xls
+  - pptx
+  - ppt
+  - csv
+  - json
+  - xml
+  - html
+  - htm
+  - rtf
+  - epub
+  - tex
+  - log
+  - yaml
+  - yml
+  - toml
   exclude_patterns:
   - node_modules
   - .git

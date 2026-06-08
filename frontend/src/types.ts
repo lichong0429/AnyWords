@@ -1,4 +1,4 @@
-// API types for DocSeek
+// API types for AnyWords
 
 export interface SearchResult {
   file_path: string;

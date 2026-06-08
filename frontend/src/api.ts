@@ -1,4 +1,4 @@
-// API client for DocSeek backend
+// API client for AnyWords backend
 
 import type {
   SearchResponse,

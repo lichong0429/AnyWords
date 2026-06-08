@@ -103,7 +103,14 @@ async fn handle_file_event(state: &Arc<AppState>, kind: EventKind, path: &PathBu
     }
 
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        if state.config.watcher.exclude_extensions.contains(&ext.to_lowercase()) {
+        let ext_lower = ext.to_lowercase();
+        if state.config.watcher.exclude_extensions.contains(&ext_lower) {
+            return;
+        }
+        // Skip if not in include list (when whitelist is configured)
+        if !state.config.watcher.include_extensions.is_empty()
+            && !state.config.watcher.include_extensions.contains(&ext_lower)
+        {
             return;
         }
     }

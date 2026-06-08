@@ -26,6 +26,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/index/remove", post(handle_index_remove))
         .route("/api/index/scan", post(handle_index_scan))
 
+        // ── Directory browsing ────────────────────────
+        .route("/api/browse", get(handle_browse))
+        .route("/api/roots", get(handle_roots))
+
         // ── MCP (Model Context Protocol) ──────────────
         // HTTP POST transport (standard)
         .route("/mcp", post(handle_mcp))

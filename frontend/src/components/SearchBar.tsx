@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { SearchMode, SortBy } from '../types';
+import { DirectoryPicker } from './DirectoryPicker';
 
 interface SearchBarProps {
   q: string;
@@ -117,6 +118,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               onChange={(e) => onPathFilterChange(e.target.value)}
               placeholder="包含路径..."
               className="w-36 px-2 py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-md text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--accent)]"
+            />
+            <DirectoryPicker
+              value={pathFilter}
+              onChange={onPathFilterChange}
             />
           </label>
           <span className="text-[var(--text-secondary)]">

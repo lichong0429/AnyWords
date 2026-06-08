@@ -70,7 +70,7 @@ const App: React.FC = () => {
             </button>
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-1">
-            🔍 DocSeek
+            🔍 AnyWords
           </h1>
           <p className="text-[var(--text-secondary)]">
             本地文件全文搜索引擎

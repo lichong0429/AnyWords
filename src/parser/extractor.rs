@@ -103,10 +103,15 @@ fn extract_text_inner(
             extract_epub_text(file_path, mime)
         }
 
-        // Default: try plain text, then binary extraction
+        // Default: only extract limited ASCII strings, never full plain text
+        // (plain text extraction on binaries produces massive garbage)
         _ => {
-            extract_plain_text(file_path, mime)
-                .or_else(|_| extract_binary_strings(file_path, mime))
+            let mut result = extract_binary_strings(file_path, mime)?;
+            if result.text.len() > 65536 {
+                result.text.truncate(65536);
+                result.text.push_str("\n[... truncated]");
+            }
+            Ok(result)
         }
     };
 
@@ -283,6 +288,15 @@ fn extract_epub_text(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedCo
 
 /// Extract readable strings from binary files
 fn extract_binary_strings(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedContent> {
+    let metadata = fs::metadata(file_path)?;
+    if metadata.len() > 50 * 1024 * 1024 {
+        return Ok(ExtractedContent {
+            text: format!("[Binary file too large: {} MB]", metadata.len() / 1024 / 1024),
+            mime_type: mime.to_string(),
+            used_tika: false,
+        });
+    }
+
     let raw_bytes = fs::read(file_path)?;
 
     // Extract ASCII/UTF-8 strings of length >= 4

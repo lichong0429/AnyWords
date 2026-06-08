@@ -1,10 +1,10 @@
-// Search engine module - wraps Tantivy for DocSeek
+// Search engine module - wraps Tantivy for AnyWords
 // Provides: index creation, document add/delete, full-text search with advanced features
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
-use tantivy::collector::TopDocs;
+use tantivy::collector::{Count, TopDocs};
 use tantivy::query::{BooleanQuery, Occur, PhraseQuery, QueryParser, RegexQuery, TermQuery, RangeQuery};
 use tantivy::schema::*;
 use tantivy::{doc, DocAddress, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher, TantivyDocument};
@@ -266,7 +266,7 @@ impl SearchEngine {
         let final_query = self.apply_filters(search_query, query, &searcher)?;
 
         // Get total count first
-        let total = searcher.search(&final_query, &TopDocs::with_limit(1))?.len() as u64;
+        let total = searcher.search(&final_query, &Count)? as u64;
         let total_pages = if query.limit > 0 {
             (total as f64 / query.limit as f64).ceil() as usize
         } else {

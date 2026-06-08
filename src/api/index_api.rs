@@ -2,7 +2,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use axum::{Json, extract::State};
+use axum::{Json, extract::State, extract::Query};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -286,6 +286,13 @@ pub fn index_single_file(state: &Arc<AppState>, file_path: &Path) -> anyhow::Res
         return Err(anyhow::anyhow!("Excluded extension: {}", file_ext));
     }
 
+    // Skip if not in include list (when whitelist is configured)
+    if !state.config.watcher.include_extensions.is_empty()
+        && !state.config.watcher.include_extensions.contains(&file_ext)
+    {
+        return Err(anyhow::anyhow!("Extension not in include list: {}", file_ext));
+    }
+
     // Check file size
     if metadata.len() > state.config.index.max_file_size_bytes {
         return Err(anyhow::anyhow!(
@@ -318,6 +325,128 @@ pub fn index_single_file(state: &Arc<AppState>, file_path: &Path) -> anyhow::Res
 
     state.engine.index_document(&doc)?;
     Ok(())
+}
+
+// ─── Directory Browsing API ──────────────────────────────
+
+/// Directory entry returned by browse API
+#[derive(Debug, Serialize)]
+pub struct DirEntry {
+    pub name: String,
+    pub path: String,
+    pub has_children: bool,
+}
+
+/// Directory browse response
+#[derive(Debug, Serialize)]
+pub struct BrowseResponse {
+    pub path: String,
+    pub parent: Option<String>,
+    pub directories: Vec<DirEntry>,
+}
+
+/// Query params for browse endpoint
+#[derive(Debug, Deserialize)]
+pub struct BrowseQuery {
+    pub path: Option<String>,
+}
+
+/// Browse subdirectories of a given path
+/// GET /api/browse?path=C:\Users\...
+pub async fn handle_browse(
+    Query(params): Query<BrowseQuery>,
+) -> Json<BrowseResponse> {
+    let root_path = params.path.unwrap_or_else(|| String::from(""));
+    let path = Path::new(&root_path);
+
+    let parent = path.parent()
+        .and_then(|p| p.to_str())
+        .map(|s| s.to_string());
+
+    let mut directories: Vec<DirEntry> = Vec::new();
+
+    if path.exists() && path.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_dir() {
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        // Skip hidden/system dirs
+                        if name.starts_with('.') || name.starts_with('$') {
+                            continue;
+                        }
+                        let has_children = std::fs::read_dir(&entry_path)
+                            .map(|mut r| r.any(|e| {
+                                e.ok().and_then(|e| e.metadata().ok())
+                                    .map(|m| m.is_dir())
+                                    .unwrap_or(false)
+                            }))
+                            .unwrap_or(false);
+
+                        directories.push(DirEntry {
+                            name,
+                            path: entry_path.to_string_lossy().to_string(),
+                            has_children,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort: dirs with children first, then alphabetically
+    directories.sort_by(|a, b| {
+        b.has_children.cmp(&a.has_children)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+
+    Json(BrowseResponse {
+        path: root_path,
+        parent,
+        directories,
+    })
+}
+
+/// Get drive roots and common directories
+/// GET /api/roots
+pub async fn handle_roots() -> Json<Vec<DirEntry>> {
+    let mut roots: Vec<DirEntry> = Vec::new();
+
+    // Add drive letters that exist
+    for letter in ('A'..='Z').rev() {
+        let drive = format!("{}:\\", letter);
+        let path = Path::new(&drive);
+        if path.exists() {
+            roots.push(DirEntry {
+                name: format!("本地磁盘 ({}:)", letter),
+                path: drive,
+                has_children: true,
+            });
+        }
+    }
+
+    // Add common user directories
+    let home = dirs::home_dir();
+    if let Some(ref home_path) = home {
+        let common_dirs = [
+            ("桌面", "Desktop"),
+            ("文档", "Documents"),
+            ("下载", "Downloads"),
+        ];
+        for (label, dir) in common_dirs.iter() {
+            let full = home_path.join(dir);
+            if full.exists() && full.is_dir() {
+                roots.push(DirEntry {
+                    name: format!("🗂 {}", label),
+                    path: full.to_string_lossy().to_string(),
+                    has_children: true,
+                });
+            }
+        }
+    }
+
+    Json(roots)
 }
 
 // --- Private helpers ---

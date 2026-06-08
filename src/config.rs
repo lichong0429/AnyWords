@@ -79,6 +79,11 @@ pub struct WatcherConfig {
     /// File extensions to exclude from watching
     #[serde(default = "default_exclude_extensions")]
     pub exclude_extensions: Vec<String>,
+    /// File extensions to include (whitelist).
+    /// When non-empty, ONLY files with these extensions are indexed.
+    /// exclude_extensions still applies on top of this.
+    #[serde(default = "default_include_extensions")]
+    pub include_extensions: Vec<String>,
     /// Glob patterns to exclude
     #[serde(default = "default_exclude_patterns")]
     pub exclude_patterns: Vec<String>,
@@ -112,6 +117,9 @@ fn default_exclude_extensions() -> Vec<String> {
         "so".into(), "dylib".into(), "class".into(),
         "o".into(), "obj".into(), "a".into(),
     ]
+}
+fn default_include_extensions() -> Vec<String> {
+    Vec::new() // empty = index all non-excluded extensions
 }
 fn default_exclude_patterns() -> Vec<String> {
     vec![
@@ -170,6 +178,7 @@ impl Default for WatcherConfig {
             debounce_ms: default_debounce_ms(),
             full_scan_interval_secs: 0,
             exclude_extensions: default_exclude_extensions(),
+            include_extensions: default_include_extensions(),
             exclude_patterns: default_exclude_patterns(),
         }
     }
