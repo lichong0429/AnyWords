@@ -2,9 +2,7 @@
 
 [English](README.md) | 中文
 
-一个高性能本地文档全文搜索引擎 —— **AnyTXT Searcher 的开源替代品**。
-
-AnyTXT 很强大，但要收费。AnyWords 免费、开源，既给人用，也给 **AI Agent** 用。
+一个高性能本地文档全文搜索引擎。主要是想给 **AI Agent** 用这样只要说关键词他就能快速定位我们说的是那个文件。
 
 ## 为什么做 AnyWords？
 
