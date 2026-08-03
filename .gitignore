@@ -10,5 +10,8 @@ dist-ssr/
 # Tauri generated files
 src-tauri/gen/
 
+# TypeScript build info
+frontend/.tsbuildinfo/
+
 # Package manager
 package-lock.json
