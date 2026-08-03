@@ -1,0 +1,17 @@
+{
+  "name": "anywords-tauri-root",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "sharp": "^0.35.3",
+    "to-ico": "^1.1.5"
+  }
+}

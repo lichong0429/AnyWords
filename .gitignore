@@ -2,6 +2,13 @@ target/
 Cargo.lock
 node_modules/
 dist/
+dist-ssr/
 .env
 *.pdb
 *.exe
+
+# Tauri generated files
+src-tauri/gen/
+
+# Package manager
+package-lock.json

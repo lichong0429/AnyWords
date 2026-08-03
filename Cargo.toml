@@ -6,6 +6,18 @@ description = "A web-based desktop file full-text search engine"
 authors = ["DocSeek Team"]
 license = "MIT"
 
+[workspace]
+members = [".", "src-tauri"]
+resolver = "2"
+
+[lib]
+name = "anywords"
+path = "src/lib.rs"
+
+[[bin]]
+name = "anywords"
+path = "src/main.rs"
+
 [dependencies]
 # Web framework
 axum = { version = "0.8", features = ["macros", "ws"] }
