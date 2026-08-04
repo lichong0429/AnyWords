@@ -65,6 +65,31 @@ fn extract_text_inner(
 ) -> anyhow::Result<ExtractedContent> {
     let mime = tree_magic_mini::from_filepath(file_path).unwrap_or("application/octet-stream");
 
+    // Extension-based routing for formats that magic-byte detection
+    // handles poorly (fb2/ofd/wps) or not at all (mobi at offset 60).
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    match ext.as_str() {
+        // FictionBook 2 e-books are plain XML
+        "fb2" => return extract_fb2_text(file_path, mime),
+        // OFD (Chinese GB/T 33190) documents are ZIP + XML
+        "ofd" => return extract_ofd_text(file_path, mime),
+        // MOBI magic sits at offset 60 (missed by tree_magic);
+        // WPS Writer files are OLE2 CFB like legacy .doc.
+        "mobi" | "wps" => {
+            if let Some(tika_parser) = tika {
+                if tika_parser.is_available() {
+                    return Err(anyhow::anyhow!("NEEDS_TIKA:{}", mime));
+                }
+            }
+            return extract_binary_strings(file_path, mime);
+        }
+        _ => {}
+    }
+
     // Check if this format should use Tika
     if TIKA_FORMATS.contains(&mime) {
         if let Some(tika_parser) = tika {
@@ -130,6 +155,28 @@ pub fn extract_text_sync(
     tika: Option<&TikaParser>,
 ) -> anyhow::Result<ExtractedContent> {
     let mime = tree_magic_mini::from_filepath(file_path).unwrap_or("application/octet-stream");
+
+    // Extension-based routing (mirrors extract_text_inner)
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    match ext.as_str() {
+        "fb2" => return extract_fb2_text(file_path, mime),
+        "ofd" => return extract_ofd_text(file_path, mime),
+        "mobi" | "wps" => {
+            if let Some(tika_parser) = tika {
+                if tika_parser.is_available() {
+                    if let Some(ref jar_path) = tika_parser.config.jar_path {
+                        return tika_parser.extract_via_jar_blocking(file_path, jar_path, mime);
+                    }
+                }
+            }
+            return extract_binary_strings(file_path, mime);
+        }
+        _ => {}
+    }
 
     if TIKA_FORMATS.contains(&mime) {
         if let Some(tika_parser) = tika {
@@ -284,6 +331,69 @@ fn extract_epub_text(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedCo
         mime_type: mime.to_string(),
         used_tika: false,
     })
+}
+
+/// Extract text from FB2 e-books (FictionBook 2: plain XML)
+fn extract_fb2_text(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedContent> {
+    let raw_bytes = fs::read(file_path)?;
+    let content = detect_and_decode(&raw_bytes);
+
+    let mut text = strip_xml_tags(&content);
+    text = decode_xml_entities(&text);
+
+    if text.trim().is_empty() {
+        text = "[No text content found in FB2]".to_string();
+    }
+
+    Ok(ExtractedContent {
+        text,
+        mime_type: mime.to_string(),
+        used_tika: false,
+    })
+}
+
+/// Extract text from OFD documents (GB/T 33190: ZIP container, text lives
+/// in <ofd:TextCode> elements inside Doc_*/Pages/*/Content.xml)
+fn extract_ofd_text(file_path: &Path, mime: &str) -> anyhow::Result<ExtractedContent> {
+    let file = fs::File::open(file_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+
+    let mut text = String::new();
+
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i)?;
+        let name = entry.name().to_lowercase();
+
+        // Page content XMLs hold the actual text runs
+        if name.ends_with("content.xml") || (name.contains("pages") && name.ends_with(".xml")) {
+            let mut content = String::new();
+            if entry.read_to_string(&mut content).is_ok() {
+                let stripped = strip_xml_tags(&content);
+                text.push_str(&decode_xml_entities(&stripped));
+                text.push('\n');
+            }
+        }
+    }
+
+    if text.trim().is_empty() {
+        text = "[No text content found in OFD document]".to_string();
+    }
+
+    Ok(ExtractedContent {
+        text,
+        mime_type: mime.to_string(),
+        used_tika: false,
+    })
+}
+
+/// Decode common XML entities
+fn decode_xml_entities(input: &str) -> String {
+    input
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
 }
 
 /// Extract readable strings from binary files

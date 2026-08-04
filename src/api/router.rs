@@ -36,8 +36,9 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/config/watch_dirs/add", post(handle_add_watch_dir))
         .route("/api/config/watch_dirs/remove", post(handle_remove_watch_dir))
 
-        // ── File operations (open / reveal) ───────────
+        // ── File operations (open / reveal / raw stream) ──
         .route("/api/file/open", post(handle_file_open))
+        .route("/api/file/raw", get(handle_file_raw))
 
         // ── MCP (Model Context Protocol) ──────────────
         // HTTP POST transport (standard)
