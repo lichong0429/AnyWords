@@ -31,7 +31,9 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/browse", get(handle_browse))
         .route("/api/roots", get(handle_roots))
 
-        // ── Configuration (watch directories) ─────────
+        // ── Configuration ───────────────────────────────
+        .route("/api/config", get(handle_get_config))
+        .route("/api/config", post(handle_update_config))
         .route("/api/config/watch_dirs", get(handle_get_watch_dirs))
         .route("/api/config/watch_dirs/add", post(handle_add_watch_dir))
         .route("/api/config/watch_dirs/remove", post(handle_remove_watch_dir))
