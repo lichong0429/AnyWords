@@ -1,8 +1,9 @@
 // AnyWords Desktop - Tauri wrapper
 
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_global_shortcut::{
     Builder as GlobalShortcutBuilder, Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
 };
@@ -48,6 +49,10 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(GlobalShortcutBuilder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
         .setup(|app| {
             // Start the AnyWords server synchronously so the window always
             // points at the real port (no sleep-and-guess race).
@@ -108,6 +113,11 @@ fn main() {
             tray_builder.build(app)?;
 
             // ── Native application menu ──────────────────────────
+            let autostart_enabled = app.autolaunch().is_enabled().unwrap_or(false);
+            let autostart_item = CheckMenuItemBuilder::with_id("autostart", "开机自启动")
+                .checked(autostart_enabled)
+                .build(app)?;
+
             let file_menu = SubmenuBuilder::new(app, "文件(&F)")
                 .item(
                     &MenuItemBuilder::with_id("quick_search", "快速搜索")
@@ -123,6 +133,7 @@ fn main() {
                         .build(app)?,
                 )
                 .separator()
+                .item(&autostart_item)
                 .item(
                     &MenuItemBuilder::with_id("hide_to_tray", "最小化到托盘")
                         .build(app)?,
@@ -161,9 +172,22 @@ fn main() {
                 .build()?;
             app.set_menu(menu)?;
 
-            app.on_menu_event(|app_handle, event| {
+            let autostart_item_handle = autostart_item.clone();
+            app.on_menu_event(move |app_handle, event| {
                 match event.id().0.as_str() {
                     "quick_search" => show_main_window(app_handle),
+                    "autostart" => {
+                        let launcher = app_handle.autolaunch();
+                        let new_state = !launcher.is_enabled().unwrap_or(false);
+                        let result = if new_state {
+                            launcher.enable()
+                        } else {
+                            launcher.disable()
+                        };
+                        if result.is_ok() {
+                            let _ = autostart_item_handle.set_checked(new_state);
+                        }
+                    }
                     "hide_to_tray" => {
                         if let Some(window) = app_handle.get_webview_window("main") {
                             let _ = window.hide();
@@ -218,6 +242,12 @@ fn main() {
             .min_inner_size(800.0, 600.0)
             .center()
             .build()?;
+
+            // When launched by the OS at login (autostart passes --hidden),
+            // stay minimized to the tray instead of popping up a window.
+            if std::env::args().any(|a| a == "--hidden") {
+                let _ = _window.hide();
+            }
 
             Ok(())
         })

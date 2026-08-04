@@ -2,7 +2,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use axum::{Json, extract::State, extract::Query};
+use axum::{Json, extract::State, extract::Query, response::IntoResponse, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -571,4 +571,47 @@ fn open_in_os(path: &Path, reveal: bool) -> std::io::Result<()> {
     };
     std::process::Command::new("xdg-open").arg(target).spawn()?;
     Ok(())
+}
+
+
+// ─── Raw File Streaming API ─────────────────────────────
+
+/// Query params for raw file streaming
+#[derive(Debug, Deserialize)]
+pub struct RawFileQuery {
+    pub path: String,
+}
+
+/// GET /api/file/raw?path=...
+/// Streams the original file bytes with the detected content type.
+/// Used by the preview pane to render PDFs and images. The server only
+/// listens on 127.0.0.1, so this stays local-only.
+pub async fn handle_file_raw(
+    Query(params): Query<RawFileQuery>,
+) -> axum::response::Response {
+    let path = Path::new(params.path.trim().trim_matches('"'));
+
+    if !path.is_file() {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
+    }
+
+    match tokio::fs::File::open(path).await {
+        Ok(file) => {
+            let stream = tokio_util::io::ReaderStream::new(file);
+            let body = axum::body::Body::from_stream(stream);
+            let mime = tree_magic_mini::from_filepath(path)
+                .unwrap_or("application/octet-stream")
+                .to_string();
+            (
+                [(axum::http::header::CONTENT_TYPE, mime)],
+                body,
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to read file: {}", e),
+        )
+            .into_response(),
+    }
 }
