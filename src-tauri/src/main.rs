@@ -68,16 +68,20 @@ fn main() {
             };
 
             // ── Global hotkey: Ctrl+Shift+Space toggles quick search ──
+            // A conflicting registration (another app holding the same
+            // hotkey) must NOT kill the whole app — just warn and go on.
             let quick_search =
                 Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
-            app.global_shortcut().on_shortcut(
+            if let Err(e) = app.global_shortcut().on_shortcut(
                 quick_search,
                 |app_handle, _shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
                         toggle_main_window(app_handle);
                     }
                 },
-            )?;
+            ) {
+                eprintln!("[AnyWords] Global hotkey Ctrl+Shift+Space unavailable: {}", e);
+            }
 
             // ── System tray ──────────────────────────────────────
             let tray_menu = MenuBuilder::new(app)

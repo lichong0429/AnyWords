@@ -16,6 +16,10 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "resources": {
+      "../frontend/dist": "frontend/dist",
+      "WebView2Loader.dll": "."
+    },
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper",
