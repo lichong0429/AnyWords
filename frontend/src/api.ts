@@ -67,6 +67,9 @@ export const api = {
   openFile: (path: string, reveal = false): Promise<IndexOpResponse> =>
     post('/file/open', { path, reveal }),
 
+  preview: (path: string, maxLen = 20000): Promise<{ path: string; content: string }> =>
+    get(`${BASE}/preview`, { path, max_len: String(maxLen) }),
+
   exportCsv: (query: SearchQuery): string => {
     const params = new URLSearchParams({
       q: query.q,

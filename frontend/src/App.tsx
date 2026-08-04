@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SearchBar } from './components/SearchBar';
 import { SearchResults } from './components/SearchResults';
 import { IndexPanel } from './components/IndexPanel';
+import { PreviewPane } from './components/PreviewPane';
 import { useSearch } from './hooks';
 import { api } from './api';
-import type { IndexStats } from './types';
+import type { IndexStats, SearchResult } from './types';
 
 const App: React.FC = () => {
   const { query, setQuery, results, loading, error, search } = useSearch();
@@ -14,6 +15,7 @@ const App: React.FC = () => {
   );
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
+  const [preview, setPreview] = useState<SearchResult | null>(null);
 
   const showToast = useCallback((text: string) => {
     setToast(text);
@@ -80,9 +82,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePreview = (r: SearchResult) => {
+    setPreview((prev) => (prev?.file_path === r.file_path ? prev : r));
+  };
+
   return (
     <div className="min-h-screen">
-      <div className="max-w-5xl mx-auto px-5 py-8">
+      <div className={`${preview ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-5 py-8 transition-all`}>
         {/* Header */}
         <header className="text-center mb-8">
           <div className="flex justify-end mb-2">
@@ -127,21 +133,36 @@ const App: React.FC = () => {
           <IndexPanel stats={stats} onRefresh={loadStats} />
         </div>
 
-        {/* Results */}
-        <SearchResults
-          results={results?.results ?? []}
-          total={results?.total ?? 0}
-          timeMs={results?.time_ms ?? 0}
-          page={results?.page ?? 1}
-          totalPages={results?.total_pages ?? 1}
-          facets={results?.facets ?? null}
-          loading={loading}
-          error={error}
-          onSelectType={handleSelectType}
-          onCopyPath={handleCopyPath}
-          onOpenFile={handleOpenFile}
-          onRevealFile={handleRevealFile}
-        />
+        {/* Results + Preview */}
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0">
+            <SearchResults
+              results={results?.results ?? []}
+              total={results?.total ?? 0}
+              timeMs={results?.time_ms ?? 0}
+              page={results?.page ?? 1}
+              totalPages={results?.total_pages ?? 1}
+              facets={results?.facets ?? null}
+              loading={loading}
+              error={error}
+              previewPath={preview?.file_path ?? null}
+              onPreview={handlePreview}
+              onSelectType={handleSelectType}
+              onCopyPath={handleCopyPath}
+              onOpenFile={handleOpenFile}
+              onRevealFile={handleRevealFile}
+            />
+          </div>
+          {preview && (
+            <PreviewPane
+              result={preview}
+              query={query.q}
+              onClose={() => setPreview(null)}
+              onOpenFile={handleOpenFile}
+              onRevealFile={handleRevealFile}
+            />
+          )}
+        </div>
 
         {/* Copy notification */}
         {copied && (

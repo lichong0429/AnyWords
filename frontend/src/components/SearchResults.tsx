@@ -22,12 +22,14 @@ const formatSize = (bytes: number): string => {
 
 interface ResultCardProps {
   result: SearchResult;
+  selected: boolean;
+  onPreview: (result: SearchResult) => void;
   onCopyPath: (path: string) => void;
   onOpenFile: (path: string) => void;
   onRevealFile: (path: string) => void;
 }
 
-const ResultCard: React.FC<ResultCardProps> = ({ result, onCopyPath, onOpenFile, onRevealFile }) => {
+const ResultCard: React.FC<ResultCardProps> = ({ result, selected, onPreview, onCopyPath, onOpenFile, onRevealFile }) => {
   const renderHighlight = (text: string) => {
     // Replace [[keyword]] with <mark>
     const parts = text.split(/(\[\[[^\]]+\]\])/);
@@ -45,9 +47,11 @@ const ResultCard: React.FC<ResultCardProps> = ({ result, onCopyPath, onOpenFile,
 
   return (
     <div
-      onClick={() => onOpenFile(result.file_path)}
-      className="card p-4 cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group"
-      title="点击打开文件"
+      onClick={() => onPreview(result)}
+      className={`card p-4 cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group ${
+        selected ? 'ring-2 ring-[var(--accent)]' : ''
+      }`}
+      title="点击预览内容"
     >
       <div className="flex items-center gap-2.5 mb-1">
         <span className="text-xl w-8 h-8 flex items-center justify-center bg-[var(--bg-secondary)] rounded-lg">
@@ -159,6 +163,8 @@ interface SearchResultsProps {
   facets: FacetCounts | null;
   loading: boolean;
   error: string | null;
+  previewPath: string | null;
+  onPreview: (result: SearchResult) => void;
   onSelectType: (ext: string) => void;
   onCopyPath: (path: string) => void;
   onOpenFile: (path: string) => void;
@@ -166,8 +172,8 @@ interface SearchResultsProps {
 }
 
 export const SearchResults: React.FC<SearchResultsProps> = ({
-  results, total, timeMs, page, totalPages, facets, loading, error,
-  onSelectType, onCopyPath, onOpenFile, onRevealFile,
+  results, total, timeMs, page, totalPages, facets, loading, error, previewPath,
+  onPreview, onSelectType, onCopyPath, onOpenFile, onRevealFile,
 }) => {
   if (loading) {
     return (
@@ -220,6 +226,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
           <ResultCard
             key={i}
             result={r}
+            selected={previewPath === r.file_path}
+            onPreview={onPreview}
             onCopyPath={onCopyPath}
             onOpenFile={onOpenFile}
             onRevealFile={onRevealFile}
