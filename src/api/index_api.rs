@@ -413,8 +413,8 @@ pub async fn handle_browse(
 pub async fn handle_roots() -> Json<Vec<DirEntry>> {
     let mut roots: Vec<DirEntry> = Vec::new();
 
-    // Add drive letters that exist
-    for letter in ('A'..='Z').rev() {
+    // Add drive letters that exist (A -> Z order)
+    for letter in 'A'..='Z' {
         let drive = format!("{}:\\", letter);
         let path = Path::new(&drive);
         if path.exists() {
@@ -483,4 +483,92 @@ fn should_skip_file(path: &Path, config: &Config) -> bool {
     }
 
     false
+}
+
+
+// ─── File Operations API ────────────────────────────────
+
+/// Request to open a file or reveal it in the file manager
+#[derive(Debug, Deserialize)]
+pub struct OpenFileRequest {
+    pub path: String,
+    /// true = reveal/select in file manager, false = open with default app
+    #[serde(default)]
+    pub reveal: bool,
+}
+
+/// POST /api/file/open
+/// Opens a file with the system default application, or reveals it in the
+/// file manager (Explorer / Finder), like AnyTXT's "open" / "open folder".
+pub async fn handle_file_open(
+    Json(req): Json<OpenFileRequest>,
+) -> Json<IndexOpResponse> {
+    let path = Path::new(req.path.trim().trim_matches('"'));
+
+    if !path.exists() {
+        return Json(IndexOpResponse {
+            success: false,
+            message: format!("File not found: {}", req.path),
+            count: None,
+            errors: None,
+        });
+    }
+
+    match open_in_os(path, req.reveal) {
+        Ok(()) => Json(IndexOpResponse {
+            success: true,
+            message: if req.reveal {
+                format!("Revealed: {}", req.path)
+            } else {
+                format!("Opened: {}", req.path)
+            },
+            count: None,
+            errors: None,
+        }),
+        Err(e) => Json(IndexOpResponse {
+            success: false,
+            message: format!("Failed to open: {}", e),
+            count: None,
+            errors: None,
+        }),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn open_in_os(path: &Path, reveal: bool) -> std::io::Result<()> {
+    if reveal {
+        // NOTE: explorer.exe often returns a non-zero exit code even on
+        // success, so we spawn it and intentionally ignore the exit status.
+        let arg = format!("/select,{}", path.to_string_lossy());
+        std::process::Command::new("explorer").arg(arg).spawn()?;
+    } else {
+        let p = path.to_string_lossy().to_string();
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "", p.as_str()])
+            .spawn()?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn open_in_os(path: &Path, reveal: bool) -> std::io::Result<()> {
+    let p = path.to_string_lossy().to_string();
+    if reveal {
+        std::process::Command::new("open").args(["-R", p.as_str()]).spawn()?;
+    } else {
+        std::process::Command::new("open").arg(p.as_str()).spawn()?;
+    }
+    Ok(())
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn open_in_os(path: &Path, reveal: bool) -> std::io::Result<()> {
+    // No standard "reveal" on Linux; open the containing directory instead.
+    let target = if reveal {
+        path.parent().unwrap_or(path).to_string_lossy().to_string()
+    } else {
+        path.to_string_lossy().to_string()
+    };
+    std::process::Command::new("xdg-open").arg(target).spawn()?;
+    Ok(())
 }

@@ -23,6 +23,9 @@ pub struct AppState {
     pub tika: Option<TikaParser>,
     /// Indexing progress: (current, total, message)
     pub index_progress: TokioRwLock<(usize, usize, String)>,
+    /// Directories currently being indexed/watched.
+    /// Mutable at runtime via /api/config/watch_dirs and persisted to YAML.
+    pub watch_dirs: TokioRwLock<Vec<String>>,
 }
 
 /// Start the AnyWords server. Returns the bound port.
@@ -83,6 +86,7 @@ pub async fn run_server() -> anyhow::Result<u16> {
         config: config.clone(),
         tika,
         index_progress: TokioRwLock::new((0, 0, String::new())),
+        watch_dirs: TokioRwLock::new(config.watcher.watch_dirs.clone()),
     });
 
     // Start file watcher in background
@@ -201,7 +205,8 @@ async fn periodic_full_scan(state: Arc<AppState>, interval_secs: u64) {
         interval.tick().await;
         tracing::info!("Starting periodic full scan...");
 
-        for dir in &state.config.watcher.watch_dirs {
+        let dirs = state.watch_dirs.read().await.clone();
+        for dir in &dirs {
             if let Err(e) = api::index_api::index_directory(dir, &state, &|_, _, _| {}) {
                 tracing::error!("Periodic scan failed for {}: {}", dir, e);
             }
