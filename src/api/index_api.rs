@@ -232,8 +232,11 @@ pub fn index_directory(
     let mut count = 0;
     let mut errors = 0;
 
+    // Snapshot the live config once per directory scan
+    let cfg = state.config.read().map(|c| c.clone()).unwrap_or_default();
+
     // Count total
-    let total = count_files_in_dir(dir, &state.config)?;
+    let total = count_files_in_dir(dir, &cfg)?;
     let mut scanned = 0;
 
     for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
@@ -243,7 +246,7 @@ pub fn index_directory(
 
         let path = entry.path();
 
-        if should_skip_file(path, &state.config) {
+        if should_skip_file(path, &cfg) {
             continue;
         }
 
@@ -280,25 +283,29 @@ pub fn index_single_file(state: &Arc<AppState>, file_path: &Path) -> anyhow::Res
         .unwrap_or_default()
         .to_string_lossy()
         .to_lowercase();
-    
+
+    // Read the live config (updated at runtime via POST /api/config)
+    let cfg = state.config.read()
+        .map_err(|e| anyhow::anyhow!("config lock poisoned: {}", e))?;
+
     // Skip based on extension
-    if state.config.watcher.exclude_extensions.contains(&file_ext) {
+    if cfg.watcher.exclude_extensions.contains(&file_ext) {
         return Err(anyhow::anyhow!("Excluded extension: {}", file_ext));
     }
 
     // Skip if not in include list (when whitelist is configured)
-    if !state.config.watcher.include_extensions.is_empty()
-        && !state.config.watcher.include_extensions.contains(&file_ext)
+    if !cfg.watcher.include_extensions.is_empty()
+        && !cfg.watcher.include_extensions.contains(&file_ext)
     {
         return Err(anyhow::anyhow!("Extension not in include list: {}", file_ext));
     }
 
     // Check file size
-    if metadata.len() > state.config.index.max_file_size_bytes {
+    if metadata.len() > cfg.index.max_file_size_bytes {
         return Err(anyhow::anyhow!(
             "File too large: {} bytes (max: {})",
             metadata.len(),
-            state.config.index.max_file_size_bytes
+            cfg.index.max_file_size_bytes
         ));
     }
 
