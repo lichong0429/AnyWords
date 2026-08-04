@@ -23,9 +23,11 @@ const formatSize = (bytes: number): string => {
 interface ResultCardProps {
   result: SearchResult;
   onCopyPath: (path: string) => void;
+  onOpenFile: (path: string) => void;
+  onRevealFile: (path: string) => void;
 }
 
-const ResultCard: React.FC<ResultCardProps> = ({ result, onCopyPath }) => {
+const ResultCard: React.FC<ResultCardProps> = ({ result, onCopyPath, onOpenFile, onRevealFile }) => {
   const renderHighlight = (text: string) => {
     // Replace [[keyword]] with <mark>
     const parts = text.split(/(\[\[[^\]]+\]\])/);
@@ -43,8 +45,9 @@ const ResultCard: React.FC<ResultCardProps> = ({ result, onCopyPath }) => {
 
   return (
     <div
-      onClick={() => onCopyPath(result.file_path)}
+      onClick={() => onOpenFile(result.file_path)}
       className="card p-4 cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group"
+      title="点击打开文件"
     >
       <div className="flex items-center gap-2.5 mb-1">
         <span className="text-xl w-8 h-8 flex items-center justify-center bg-[var(--bg-secondary)] rounded-lg">
@@ -55,6 +58,30 @@ const ResultCard: React.FC<ResultCardProps> = ({ result, onCopyPath }) => {
         </span>
         <span className="text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">
           {result.file_ext}
+        </span>
+        {/* Action buttons */}
+        <span className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); onOpenFile(result.file_path); }}
+            className="text-xs px-2 py-1 rounded-md hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+            title="打开文件"
+          >
+            📂 打开
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRevealFile(result.file_path); }}
+            className="text-xs px-2 py-1 rounded-md hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+            title="在文件夹中显示"
+          >
+            📁 位置
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopyPath(result.file_path); }}
+            className="text-xs px-2 py-1 rounded-md hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+            title="复制路径"
+          >
+            📋 复制
+          </button>
         </span>
       </div>
       <div className="text-xs text-[var(--text-secondary)] truncate mb-2">
@@ -134,10 +161,13 @@ interface SearchResultsProps {
   error: string | null;
   onSelectType: (ext: string) => void;
   onCopyPath: (path: string) => void;
+  onOpenFile: (path: string) => void;
+  onRevealFile: (path: string) => void;
 }
 
 export const SearchResults: React.FC<SearchResultsProps> = ({
-  results, total, timeMs, page, totalPages, facets, loading, error, onSelectType, onCopyPath,
+  results, total, timeMs, page, totalPages, facets, loading, error,
+  onSelectType, onCopyPath, onOpenFile, onRevealFile,
 }) => {
   if (loading) {
     return (
@@ -187,7 +217,13 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
           )}
         </div>
         {results.map((r, i) => (
-          <ResultCard key={i} result={r} onCopyPath={onCopyPath} />
+          <ResultCard
+            key={i}
+            result={r}
+            onCopyPath={onCopyPath}
+            onOpenFile={onOpenFile}
+            onRevealFile={onRevealFile}
+          />
         ))}
       </div>
 

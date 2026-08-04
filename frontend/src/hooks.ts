@@ -41,13 +41,14 @@ export function useSearch(): UseSearchReturn {
     }
   }, [query]);
 
-  // Trigger search when query changes (debounced externally)
+  // Trigger search when query changes (300ms debounce)
   useEffect(() => {
-    if (query.q.trim()) {
-      const timer = setTimeout(search, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [query.q, query.mode, query.sort, query.file_type, query.path_filter]);
+    if (!query.q.trim()) return;
+    const timer = setTimeout(() => {
+      void search();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, search]);
 
   return { query, setQuery, results, loading, error, search };
 }

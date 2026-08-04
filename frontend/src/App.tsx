@@ -13,6 +13,12 @@ const App: React.FC = () => {
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
   const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState('');
+
+  const showToast = useCallback((text: string) => {
+    setToast(text);
+    setTimeout(() => setToast(''), 2500);
+  }, []);
 
   // Theme management
   useEffect(() => {
@@ -54,6 +60,24 @@ const App: React.FC = () => {
     await navigator.clipboard.writeText(path);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleOpenFile = async (path: string) => {
+    try {
+      const res = await api.openFile(path);
+      if (!res.success) showToast(`⚠️ ${res.message}`);
+    } catch (e) {
+      showToast(`⚠️ 无法打开文件: ${e}`);
+    }
+  };
+
+  const handleRevealFile = async (path: string) => {
+    try {
+      const res = await api.openFile(path, true);
+      if (!res.success) showToast(`⚠️ ${res.message}`);
+    } catch (e) {
+      showToast(`⚠️ 无法打开所在目录: ${e}`);
+    }
   };
 
   return (
@@ -115,12 +139,21 @@ const App: React.FC = () => {
           error={error}
           onSelectType={handleSelectType}
           onCopyPath={handleCopyPath}
+          onOpenFile={handleOpenFile}
+          onRevealFile={handleRevealFile}
         />
 
         {/* Copy notification */}
         {copied && (
           <div className="fixed bottom-6 right-6 bg-[var(--accent)] text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-bounce">
             路径已复制 ✅
+          </div>
+        )}
+
+        {/* Toast notification */}
+        {toast && (
+          <div className="fixed bottom-6 right-6 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] px-4 py-2 rounded-xl shadow-lg text-sm font-medium">
+            {toast}
           </div>
         )}
       </div>
