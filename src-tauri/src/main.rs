@@ -217,7 +217,10 @@ fn main() {
                     "docs" => {
                         let _ = app_handle
                             .shell()
-                            .open("https://github.com/lichong0429/AnyWords", None::<&str>);
+                            .open(
+                                "https://github.com/lichong0429/AnyWords",
+                                None::<tauri_plugin_shell::open::Program>,
+                            );
                     }
                     "about" => {
                         if let Some(window) = app_handle.get_webview_window("main") {
