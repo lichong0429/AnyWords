@@ -39,8 +39,11 @@ pub fn start_watcher(
 
     let debounce_ms = state.config.watcher.debounce_ms;
 
-    // Spawn async handler with debouncing
+    // Spawn async handler with debouncing.
+    // IMPORTANT: the watcher must be moved into the task — dropping it would
+    // unregister all OS watches and silently disable file monitoring.
     tokio::spawn(async move {
+        let _watcher = watcher;
         let mut pending: HashMap<String, (EventKind, tokio::time::Instant)> = HashMap::new();
 
         loop {

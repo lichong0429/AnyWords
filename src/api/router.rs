@@ -6,6 +6,7 @@ use crate::AppState;
 
 use super::search::*;
 use super::index_api::*;
+use super::config_api::*;
 use super::mcp::{handle_mcp, handle_mcp_sse};
 
 /// Create the main API router
@@ -29,6 +30,14 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // ── Directory browsing ────────────────────────
         .route("/api/browse", get(handle_browse))
         .route("/api/roots", get(handle_roots))
+
+        // ── Configuration (watch directories) ─────────
+        .route("/api/config/watch_dirs", get(handle_get_watch_dirs))
+        .route("/api/config/watch_dirs/add", post(handle_add_watch_dir))
+        .route("/api/config/watch_dirs/remove", post(handle_remove_watch_dir))
+
+        // ── File operations (open / reveal) ───────────
+        .route("/api/file/open", post(handle_file_open))
 
         // ── MCP (Model Context Protocol) ──────────────
         // HTTP POST transport (standard)
