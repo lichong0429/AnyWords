@@ -6,6 +6,7 @@ import type {
   IndexStats,
   IndexProgress,
   IndexOpResponse,
+  AppConfig,
 } from './types';
 
 const BASE = '/api';
@@ -66,6 +67,11 @@ export const api = {
 
   openFile: (path: string, reveal = false): Promise<IndexOpResponse> =>
     post('/file/open', { path, reveal }),
+
+  getConfig: (): Promise<AppConfig> => get(`${BASE}/config`),
+
+  saveConfig: (config: AppConfig): Promise<IndexOpResponse> =>
+    post('/config', config),
 
   preview: (path: string, maxLen = 20000): Promise<{ path: string; content: string }> =>
     get(`${BASE}/preview`, { path, max_len: String(maxLen) }),

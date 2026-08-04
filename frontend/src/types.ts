@@ -66,3 +66,44 @@ export interface IndexOpResponse {
   count?: number;
   errors?: number;
 }
+
+// ─── Application configuration (mirrors anywords.yml) ───
+
+export interface ServerConfig {
+  port: number;
+  host: string;
+}
+
+export interface IndexConfig {
+  dir: string;
+  writer_buffer_bytes: number;
+  max_file_size_bytes: number;
+}
+
+export interface ParserConfig {
+  tika_server_url: string | null;
+  tika_jar_path: string | null;
+  fallback_basic: boolean;
+}
+
+export interface WatcherConfig {
+  watch_dirs: string[];
+  enabled: boolean;
+  debounce_ms: number;
+  full_scan_interval_secs: number;
+  exclude_extensions: string[];
+  include_extensions: string[];
+  exclude_patterns: string[];
+}
+
+export interface LogConfig {
+  level: string;
+}
+
+export interface AppConfig {
+  server: ServerConfig;
+  index: IndexConfig;
+  parser: ParserConfig;
+  watcher: WatcherConfig;
+  logging: LogConfig;
+}

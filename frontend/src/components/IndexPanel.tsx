@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { IndexStats } from '../types';
 import { api } from '../api';
 import { DirectoryPicker } from './DirectoryPicker';
+import { SettingsPanel } from './SettingsPanel';
 
 interface IndexPanelProps {
   stats: IndexStats | null;
@@ -188,6 +189,9 @@ export const IndexPanel: React.FC<IndexPanelProps> = ({ stats, onRefresh }) => {
               </span>
             </div>
           </div>
+
+          {/* Full settings */}
+          <SettingsPanel onMessage={setMessage} />
 
           {scanning && (
             <div className="h-1.5 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
