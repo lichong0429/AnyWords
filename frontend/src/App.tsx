@@ -86,6 +86,11 @@ const App: React.FC = () => {
     setPreview((prev) => (prev?.file_path === r.file_path ? prev : r));
   };
 
+  const handlePageChange = (p: number) => {
+    setQuery({ offset: (p - 1) * (query.limit ?? 30) });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen">
       <div className={`${preview ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-5 py-8 transition-all`}>
@@ -147,6 +152,7 @@ const App: React.FC = () => {
               error={error}
               previewPath={preview?.file_path ?? null}
               onPreview={handlePreview}
+              onPageChange={handlePageChange}
               onSelectType={handleSelectType}
               onCopyPath={handleCopyPath}
               onOpenFile={handleOpenFile}

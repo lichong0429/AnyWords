@@ -70,6 +70,9 @@ export const api = {
   preview: (path: string, maxLen = 20000): Promise<{ path: string; content: string }> =>
     get(`${BASE}/preview`, { path, max_len: String(maxLen) }),
 
+  rawFileUrl: (path: string): string =>
+    `${BASE}/file/raw?path=${encodeURIComponent(path)}`,
+
   exportCsv: (query: SearchQuery): string => {
     const params = new URLSearchParams({
       q: query.q,

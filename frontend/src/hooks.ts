@@ -24,7 +24,13 @@ export function useSearch(): UseSearchReturn {
   const [error, setError] = useState<string | null>(null);
 
   const setQuery = useCallback((partial: Partial<SearchQuery>) => {
-    setQueryState((prev) => ({ ...prev, ...partial }));
+    setQueryState((prev) => {
+      const next = { ...prev, ...partial };
+      // Any filter/query change restarts from the first page unless the
+      // caller explicitly sets offset (pagination).
+      if (!('offset' in partial)) next.offset = 0;
+      return next;
+    });
   }, []);
 
   const search = useCallback(async () => {

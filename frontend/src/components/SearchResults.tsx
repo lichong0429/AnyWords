@@ -165,15 +165,29 @@ interface SearchResultsProps {
   error: string | null;
   previewPath: string | null;
   onPreview: (result: SearchResult) => void;
+  onPageChange: (page: number) => void;
   onSelectType: (ext: string) => void;
   onCopyPath: (path: string) => void;
   onOpenFile: (path: string) => void;
   onRevealFile: (path: string) => void;
 }
 
+// Build the page number window: 1 ... c-1 c c+1 ... last
+const pageNumbers = (page: number, totalPages: number): (number | '…')[] => {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const pages: (number | '…')[] = [1];
+  if (page > 3) pages.push('…');
+  for (let p = Math.max(2, page - 1); p <= Math.min(totalPages - 1, page + 1); p++) {
+    pages.push(p);
+  }
+  if (page < totalPages - 2) pages.push('…');
+  pages.push(totalPages);
+  return pages;
+};
+
 export const SearchResults: React.FC<SearchResultsProps> = ({
   results, total, timeMs, page, totalPages, facets, loading, error, previewPath,
-  onPreview, onSelectType, onCopyPath, onOpenFile, onRevealFile,
+  onPreview, onPageChange, onSelectType, onCopyPath, onOpenFile, onRevealFile,
 }) => {
   if (loading) {
     return (
@@ -233,6 +247,45 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             onRevealFile={onRevealFile}
           />
         ))}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1.5 pt-2 pb-4">
+            <button
+              onClick={() => onPageChange(page - 1)}
+              disabled={page <= 1}
+              className="px-3 py-1.5 text-sm rounded-lg border border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-secondary)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ← 上一页
+            </button>
+            {pageNumbers(page, totalPages).map((p, i) =>
+              p === '…' ? (
+                <span key={`ellipsis-${i}`} className="px-1 text-[var(--text-secondary)]">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => onPageChange(p)}
+                  className={`min-w-[36px] px-2 py-1.5 text-sm rounded-lg border transition-colors ${
+                    p === page
+                      ? 'bg-[var(--accent)] text-white border-[var(--accent)] font-semibold'
+                      : 'border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-secondary)]'
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+            <button
+              onClick={() => onPageChange(page + 1)}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 text-sm rounded-lg border border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-secondary)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              下一页 →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Facets sidebar */}
