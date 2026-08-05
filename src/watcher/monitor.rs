@@ -37,10 +37,15 @@ pub fn start_watcher(
         }
     }
 
-    let debounce_ms = state.config.watcher.debounce_ms;
+    let debounce_ms = state.config.read()
+        .map(|c| c.watcher.debounce_ms)
+        .unwrap_or(2000);
 
-    // Spawn async handler with debouncing
+    // Spawn async handler with debouncing.
+    // IMPORTANT: the watcher must be moved into the task — dropping it would
+    // unregister all OS watches and silently disable file monitoring.
     tokio::spawn(async move {
+        let _watcher = watcher;
         let mut pending: HashMap<String, (EventKind, tokio::time::Instant)> = HashMap::new();
 
         loop {
@@ -104,21 +109,36 @@ async fn handle_file_event(state: &Arc<AppState>, kind: EventKind, path: &PathBu
 
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
-        if state.config.watcher.exclude_extensions.contains(&ext_lower) {
+        let cfg = match state.config.read() {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+        if cfg.watcher.exclude_extensions.contains(&ext_lower) {
             return;
         }
         // Skip if not in include list (when whitelist is configured)
-        if !state.config.watcher.include_extensions.is_empty()
-            && !state.config.watcher.include_extensions.contains(&ext_lower)
+        if !cfg.watcher.include_extensions.is_empty()
+            && !cfg.watcher.include_extensions.contains(&ext_lower)
         {
             return;
         }
-    }
 
-    let path_str = path.to_string_lossy().to_lowercase();
-    for pattern in &state.config.watcher.exclude_patterns {
-        if path_str.contains(&pattern.to_lowercase()) {
-            return;
+        let path_str = path.to_string_lossy().to_lowercase();
+        for pattern in &cfg.watcher.exclude_patterns {
+            if path_str.contains(&pattern.to_lowercase()) {
+                return;
+            }
+        }
+    } else {
+        let path_str = path.to_string_lossy().to_lowercase();
+        let cfg = match state.config.read() {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+        for pattern in &cfg.watcher.exclude_patterns {
+            if path_str.contains(&pattern.to_lowercase()) {
+                return;
+            }
         }
     }
 

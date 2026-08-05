@@ -24,7 +24,13 @@ export function useSearch(): UseSearchReturn {
   const [error, setError] = useState<string | null>(null);
 
   const setQuery = useCallback((partial: Partial<SearchQuery>) => {
-    setQueryState((prev) => ({ ...prev, ...partial }));
+    setQueryState((prev) => {
+      const next = { ...prev, ...partial };
+      // Any filter/query change restarts from the first page unless the
+      // caller explicitly sets offset (pagination).
+      if (!('offset' in partial)) next.offset = 0;
+      return next;
+    });
   }, []);
 
   const search = useCallback(async () => {
@@ -41,13 +47,14 @@ export function useSearch(): UseSearchReturn {
     }
   }, [query]);
 
-  // Trigger search when query changes (debounced externally)
+  // Trigger search when query changes (300ms debounce)
   useEffect(() => {
-    if (query.q.trim()) {
-      const timer = setTimeout(search, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [query.q, query.mode, query.sort, query.file_type, query.path_filter]);
+    if (!query.q.trim()) return;
+    const timer = setTimeout(() => {
+      void search();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, search]);
 
   return { query, setQuery, results, loading, error, search };
 }

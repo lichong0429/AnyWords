@@ -2,7 +2,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use axum::{Json, extract::State, extract::Query};
+use axum::{Json, extract::State, extract::Query, response::IntoResponse, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -232,8 +232,11 @@ pub fn index_directory(
     let mut count = 0;
     let mut errors = 0;
 
+    // Snapshot the live config once per directory scan
+    let cfg = state.config.read().map(|c| c.clone()).unwrap_or_default();
+
     // Count total
-    let total = count_files_in_dir(dir, &state.config)?;
+    let total = count_files_in_dir(dir, &cfg)?;
     let mut scanned = 0;
 
     for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
@@ -243,7 +246,7 @@ pub fn index_directory(
 
         let path = entry.path();
 
-        if should_skip_file(path, &state.config) {
+        if should_skip_file(path, &cfg) {
             continue;
         }
 
@@ -280,25 +283,29 @@ pub fn index_single_file(state: &Arc<AppState>, file_path: &Path) -> anyhow::Res
         .unwrap_or_default()
         .to_string_lossy()
         .to_lowercase();
-    
+
+    // Read the live config (updated at runtime via POST /api/config)
+    let cfg = state.config.read()
+        .map_err(|e| anyhow::anyhow!("config lock poisoned: {}", e))?;
+
     // Skip based on extension
-    if state.config.watcher.exclude_extensions.contains(&file_ext) {
+    if cfg.watcher.exclude_extensions.contains(&file_ext) {
         return Err(anyhow::anyhow!("Excluded extension: {}", file_ext));
     }
 
     // Skip if not in include list (when whitelist is configured)
-    if !state.config.watcher.include_extensions.is_empty()
-        && !state.config.watcher.include_extensions.contains(&file_ext)
+    if !cfg.watcher.include_extensions.is_empty()
+        && !cfg.watcher.include_extensions.contains(&file_ext)
     {
         return Err(anyhow::anyhow!("Extension not in include list: {}", file_ext));
     }
 
     // Check file size
-    if metadata.len() > state.config.index.max_file_size_bytes {
+    if metadata.len() > cfg.index.max_file_size_bytes {
         return Err(anyhow::anyhow!(
             "File too large: {} bytes (max: {})",
             metadata.len(),
-            state.config.index.max_file_size_bytes
+            cfg.index.max_file_size_bytes
         ));
     }
 
@@ -413,8 +420,8 @@ pub async fn handle_browse(
 pub async fn handle_roots() -> Json<Vec<DirEntry>> {
     let mut roots: Vec<DirEntry> = Vec::new();
 
-    // Add drive letters that exist
-    for letter in ('A'..='Z').rev() {
+    // Add drive letters that exist (A -> Z order)
+    for letter in 'A'..='Z' {
         let drive = format!("{}:\\", letter);
         let path = Path::new(&drive);
         if path.exists() {
@@ -483,4 +490,135 @@ fn should_skip_file(path: &Path, config: &Config) -> bool {
     }
 
     false
+}
+
+
+// ─── File Operations API ────────────────────────────────
+
+/// Request to open a file or reveal it in the file manager
+#[derive(Debug, Deserialize)]
+pub struct OpenFileRequest {
+    pub path: String,
+    /// true = reveal/select in file manager, false = open with default app
+    #[serde(default)]
+    pub reveal: bool,
+}
+
+/// POST /api/file/open
+/// Opens a file with the system default application, or reveals it in the
+/// file manager (Explorer / Finder), like AnyTXT's "open" / "open folder".
+pub async fn handle_file_open(
+    Json(req): Json<OpenFileRequest>,
+) -> Json<IndexOpResponse> {
+    let path = Path::new(req.path.trim().trim_matches('"'));
+
+    if !path.exists() {
+        return Json(IndexOpResponse {
+            success: false,
+            message: format!("File not found: {}", req.path),
+            count: None,
+            errors: None,
+        });
+    }
+
+    match open_in_os(path, req.reveal) {
+        Ok(()) => Json(IndexOpResponse {
+            success: true,
+            message: if req.reveal {
+                format!("Revealed: {}", req.path)
+            } else {
+                format!("Opened: {}", req.path)
+            },
+            count: None,
+            errors: None,
+        }),
+        Err(e) => Json(IndexOpResponse {
+            success: false,
+            message: format!("Failed to open: {}", e),
+            count: None,
+            errors: None,
+        }),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn open_in_os(path: &Path, reveal: bool) -> std::io::Result<()> {
+    if reveal {
+        // NOTE: explorer.exe often returns a non-zero exit code even on
+        // success, so we spawn it and intentionally ignore the exit status.
+        let arg = format!("/select,{}", path.to_string_lossy());
+        std::process::Command::new("explorer").arg(arg).spawn()?;
+    } else {
+        let p = path.to_string_lossy().to_string();
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "", p.as_str()])
+            .spawn()?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn open_in_os(path: &Path, reveal: bool) -> std::io::Result<()> {
+    let p = path.to_string_lossy().to_string();
+    if reveal {
+        std::process::Command::new("open").args(["-R", p.as_str()]).spawn()?;
+    } else {
+        std::process::Command::new("open").arg(p.as_str()).spawn()?;
+    }
+    Ok(())
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn open_in_os(path: &Path, reveal: bool) -> std::io::Result<()> {
+    // No standard "reveal" on Linux; open the containing directory instead.
+    let target = if reveal {
+        path.parent().unwrap_or(path).to_string_lossy().to_string()
+    } else {
+        path.to_string_lossy().to_string()
+    };
+    std::process::Command::new("xdg-open").arg(target).spawn()?;
+    Ok(())
+}
+
+
+// ─── Raw File Streaming API ─────────────────────────────
+
+/// Query params for raw file streaming
+#[derive(Debug, Deserialize)]
+pub struct RawFileQuery {
+    pub path: String,
+}
+
+/// GET /api/file/raw?path=...
+/// Streams the original file bytes with the detected content type.
+/// Used by the preview pane to render PDFs and images. The server only
+/// listens on 127.0.0.1, so this stays local-only.
+pub async fn handle_file_raw(
+    Query(params): Query<RawFileQuery>,
+) -> axum::response::Response {
+    let path = Path::new(params.path.trim().trim_matches('"'));
+
+    if !path.is_file() {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
+    }
+
+    match tokio::fs::File::open(path).await {
+        Ok(file) => {
+            let stream = tokio_util::io::ReaderStream::new(file);
+            let body = axum::body::Body::from_stream(stream);
+            let mime = tree_magic_mini::from_filepath(path)
+                .unwrap_or("application/octet-stream")
+                .to_string();
+            (
+                [(axum::http::header::CONTENT_TYPE, mime)],
+                body,
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to read file: {}", e),
+        )
+            .into_response(),
+    }
 }

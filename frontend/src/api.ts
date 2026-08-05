@@ -6,6 +6,7 @@ import type {
   IndexStats,
   IndexProgress,
   IndexOpResponse,
+  AppConfig,
 } from './types';
 
 const BASE = '/api';
@@ -54,6 +55,29 @@ export const api = {
     post('/index/scan', { directory, recursive: true }),
 
   rebuild: (): Promise<IndexOpResponse> => post('/index/rebuild'),
+
+  watchDirs: (): Promise<{ watch_dirs: string[] }> =>
+    get(`${BASE}/config/watch_dirs`),
+
+  addWatchDir: (path: string): Promise<IndexOpResponse> =>
+    post('/config/watch_dirs/add', { path }),
+
+  removeWatchDir: (path: string): Promise<IndexOpResponse> =>
+    post('/config/watch_dirs/remove', { path }),
+
+  openFile: (path: string, reveal = false): Promise<IndexOpResponse> =>
+    post('/file/open', { path, reveal }),
+
+  getConfig: (): Promise<AppConfig> => get(`${BASE}/config`),
+
+  saveConfig: (config: AppConfig): Promise<IndexOpResponse> =>
+    post('/config', config),
+
+  preview: (path: string, maxLen = 20000): Promise<{ path: string; content: string }> =>
+    get(`${BASE}/preview`, { path, max_len: String(maxLen) }),
+
+  rawFileUrl: (path: string): string =>
+    `${BASE}/file/raw?path=${encodeURIComponent(path)}`,
 
   exportCsv: (query: SearchQuery): string => {
     const params = new URLSearchParams({

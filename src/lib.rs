@@ -19,10 +19,16 @@ use api::router::create_router;
 /// Application state shared across all handlers
 pub struct AppState {
     pub engine: SearchEngine,
-    pub config: Config,
+    /// Live configuration. Updated at runtime via POST /api/config;
+    /// per-file indexing rules are read on every file so changes to
+    /// extension/pattern filters and max file size apply immediately.
+    pub config: std::sync::RwLock<Config>,
     pub tika: Option<TikaParser>,
     /// Indexing progress: (current, total, message)
     pub index_progress: TokioRwLock<(usize, usize, String)>,
+    /// Directories currently being indexed/watched.
+    /// Mutable at runtime via /api/config/watch_dirs and persisted to YAML.
+    pub watch_dirs: TokioRwLock<Vec<String>>,
 }
 
 /// Start the AnyWords server. Returns the bound port.
@@ -80,9 +86,10 @@ pub async fn run_server() -> anyhow::Result<u16> {
 
     let state = Arc::new(AppState {
         engine,
-        config: config.clone(),
+        config: std::sync::RwLock::new(config.clone()),
         tika,
         index_progress: TokioRwLock::new((0, 0, String::new())),
+        watch_dirs: TokioRwLock::new(config.watcher.watch_dirs.clone()),
     });
 
     // Start file watcher in background
@@ -127,15 +134,26 @@ pub async fn run_server() -> anyhow::Result<u16> {
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
         .fallback_service(ServeDir::new("frontend/dist"));
 
-    // Start server
+    // Start server. If the configured port is taken (e.g. another app such
+    // as AnyTXT also uses 9921), fall back to an OS-assigned free port so
+    // the app still starts instead of pointing the window at a dead page.
     let addr = SocketAddr::from(([127, 0, 0, 1], config.server.port));
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::warn!(
+                "Port {} unavailable ({}), falling back to a random free port",
+                config.server.port, e
+            );
+            tokio::net::TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0))).await?
+        }
+    };
+    let port = listener.local_addr()?.port();
+
     tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    tracing::info!("  AnyWords is running at: http://{}", addr);
+    tracing::info!("  AnyWords is running at: http://127.0.0.1:{}", port);
     tracing::info!("  Open your browser to start searching!");
     tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    let port = listener.local_addr()?.port();
 
     tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, app).await {
@@ -158,8 +176,9 @@ async fn scan_directories_on_startup(
     let mut errors = 0usize;
 
     // Count total files first
+    let cfg_snapshot = state.config.read().map(|c| c.clone()).unwrap_or_default();
     for dir in &dirs {
-        if let Ok(count) = api::index_api::count_files_in_dir(dir, &state.config) {
+        if let Ok(count) = api::index_api::count_files_in_dir(dir, &cfg_snapshot) {
             total_files += count;
         }
     }
@@ -201,7 +220,8 @@ async fn periodic_full_scan(state: Arc<AppState>, interval_secs: u64) {
         interval.tick().await;
         tracing::info!("Starting periodic full scan...");
 
-        for dir in &state.config.watcher.watch_dirs {
+        let dirs = state.watch_dirs.read().await.clone();
+        for dir in &dirs {
             if let Err(e) = api::index_api::index_directory(dir, &state, &|_, _, _| {}) {
                 tracing::error!("Periodic scan failed for {}: {}", dir, e);
             }

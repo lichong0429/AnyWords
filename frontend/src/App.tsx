@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SearchBar } from './components/SearchBar';
 import { SearchResults } from './components/SearchResults';
 import { IndexPanel } from './components/IndexPanel';
+import { PreviewPane } from './components/PreviewPane';
 import { useSearch } from './hooks';
 import { api } from './api';
-import type { IndexStats } from './types';
+import type { IndexStats, SearchResult } from './types';
 
 const App: React.FC = () => {
   const { query, setQuery, results, loading, error, search } = useSearch();
@@ -13,6 +14,13 @@ const App: React.FC = () => {
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
   const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState('');
+  const [preview, setPreview] = useState<SearchResult | null>(null);
+
+  const showToast = useCallback((text: string) => {
+    setToast(text);
+    setTimeout(() => setToast(''), 2500);
+  }, []);
 
   // Theme management
   useEffect(() => {
@@ -56,9 +64,36 @@ const App: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleOpenFile = async (path: string) => {
+    try {
+      const res = await api.openFile(path);
+      if (!res.success) showToast(`⚠️ ${res.message}`);
+    } catch (e) {
+      showToast(`⚠️ 无法打开文件: ${e}`);
+    }
+  };
+
+  const handleRevealFile = async (path: string) => {
+    try {
+      const res = await api.openFile(path, true);
+      if (!res.success) showToast(`⚠️ ${res.message}`);
+    } catch (e) {
+      showToast(`⚠️ 无法打开所在目录: ${e}`);
+    }
+  };
+
+  const handlePreview = (r: SearchResult) => {
+    setPreview((prev) => (prev?.file_path === r.file_path ? prev : r));
+  };
+
+  const handlePageChange = (p: number) => {
+    setQuery({ offset: (p - 1) * (query.limit ?? 30) });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen">
-      <div className="max-w-5xl mx-auto px-5 py-8">
+      <div className={`${preview ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-5 py-8 transition-all`}>
         {/* Header */}
         <header className="text-center mb-8">
           <div className="flex justify-end mb-2">
@@ -103,24 +138,49 @@ const App: React.FC = () => {
           <IndexPanel stats={stats} onRefresh={loadStats} />
         </div>
 
-        {/* Results */}
-        <SearchResults
-          results={results?.results ?? []}
-          total={results?.total ?? 0}
-          timeMs={results?.time_ms ?? 0}
-          page={results?.page ?? 1}
-          totalPages={results?.total_pages ?? 1}
-          facets={results?.facets ?? null}
-          loading={loading}
-          error={error}
-          onSelectType={handleSelectType}
-          onCopyPath={handleCopyPath}
-        />
+        {/* Results + Preview */}
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0">
+            <SearchResults
+              results={results?.results ?? []}
+              total={results?.total ?? 0}
+              timeMs={results?.time_ms ?? 0}
+              page={results?.page ?? 1}
+              totalPages={results?.total_pages ?? 1}
+              facets={results?.facets ?? null}
+              loading={loading}
+              error={error}
+              previewPath={preview?.file_path ?? null}
+              onPreview={handlePreview}
+              onPageChange={handlePageChange}
+              onSelectType={handleSelectType}
+              onCopyPath={handleCopyPath}
+              onOpenFile={handleOpenFile}
+              onRevealFile={handleRevealFile}
+            />
+          </div>
+          {preview && (
+            <PreviewPane
+              result={preview}
+              query={query.q}
+              onClose={() => setPreview(null)}
+              onOpenFile={handleOpenFile}
+              onRevealFile={handleRevealFile}
+            />
+          )}
+        </div>
 
         {/* Copy notification */}
         {copied && (
           <div className="fixed bottom-6 right-6 bg-[var(--accent)] text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-bounce">
             路径已复制 ✅
+          </div>
+        )}
+
+        {/* Toast notification */}
+        {toast && (
+          <div className="fixed bottom-6 right-6 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] px-4 py-2 rounded-xl shadow-lg text-sm font-medium">
+            {toast}
           </div>
         )}
       </div>
